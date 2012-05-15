@@ -33,7 +33,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 // Set defaults
 
-$options_accepted_fields = array(
+$options_fhr_accepted_fields = array(
 	'fhr_categories' => 'Atmosphere, Staff, Service, Food, Wine, Value for money',
 	'fhr_rating_max' => 10,
 	'fhr_use_average' => 0,
@@ -47,22 +47,25 @@ $options_accepted_fields = array(
 
 // Defaults
 
-foreach($options_accepted_fields as $accepted_field => $default_value) {
-	if(get_option($accepted_field)) $$accepted_field = $default_value;
+foreach($options_fhr_accepted_fields as $accepted_field => $default_value) {
+	// if(get_option($accepted_field)) $$accepted_field = $default_value;
+	if(!get_option($accepted_field)) update_option($accepted_field, $default_value);
 }
 
-$accepted_fields = array();
-$accepted_fields[] = 'hreview_summary';
-$accepted_fields[] = 'hreview_type';
-$accepted_fields[] = 'hreview_item';
-$accepted_fields[] = 'hreview_item_url';
+$fhr_accepted_fields = array();
+$fhr_accepted_fields[] = 'hreview_summary';
+$fhr_accepted_fields[] = 'hreview_type';
+$fhr_accepted_fields[] = 'hreview_item';
+$fhr_accepted_fields[] = 'hreview_item_url';
+$fhr_accepted_fields[] = 'hreview_rating_max';
 
 $all_categories = get_option('fhr_categories');
 $split_categories = explode(',',$all_categories);
 
 foreach($split_categories as $category) {
-	$accepted_fields[] = str_replace('-','_',sanitize_title($category));
-	$accepted_fields[] = str_replace('-','_',sanitize_title($category) . '_commentary');
+	$fhr_accepted_fields[] = str_replace('-','_',sanitize_title($category));
+	$fhr_accepted_fields[] = str_replace('-','_',sanitize_title($category) . '_max');
+	$fhr_accepted_fields[] = str_replace('-','_',sanitize_title($category) . '_commentary');
 }
 
 
@@ -79,10 +82,10 @@ function fhr_category_options() {
 
 	// Save data
 
-	global $options_accepted_fields;
+	global $options_fhr_accepted_fields;
 
 	if($_POST && wp_verify_nonce($_POST['fhr_nonce'],'fhr_edit')) {
-		foreach($options_accepted_fields as $accepted_field => $default_value) {
+		foreach($options_fhr_accepted_fields as $accepted_field => $default_value) {
 			update_option( $accepted_field, $_POST[$accepted_field] );
 		}
 	}
@@ -100,12 +103,6 @@ function fhr_category_options() {
 	<label for="fhr_categories">Fields to use (Comma separated)</label>
 	<br />
 	<input type="text" class="regular-text" name="fhr_categories" id="fhr_categories" value="<?php echo get_option('fhr_categories'); ?>" />
-
-	<?php
-	// echo '<br >';
-	// $fhr_categories_array = explode(',',$fhr_categories);	
-	// print_r($fhr_categories_array);
-	?>
 
 	<br />
 	<br />
@@ -193,43 +190,11 @@ function fhr_preview_init() {
 	);
 }
 
-// $categories = array(
-//         'atmosphere' => 'Atmosphere',
-//         'staff' => 'Staff',
-//         'service' => 'Service',
-//         'food' => 'Food',
-//         'wine' => 'Wine',
-//         'value_for_money' => 'Value for money'
-// );
-
-// $accepted_fields = array();
-
-// foreach($categories as $sanname => $name) {
-//     $accepted_fields[] = $sanname;
-//     $accepted_fields[] = $sanname . '_commentary';
-// }
-// $accepted_fields[] = 'hreview_summary';
-// $accepted_fields[] = 'hreview_type';
-// $accepted_fields[] = 'hreview_item';
-// $accepted_fields[] = 'hreview_item_url';
-
-
 // collect the hReview data
 
 function flexible_hreview() {
 
 global $post;
-// global $categories;
-
-// foreach($categories as $sanname => $name) {
-//     $$sanname = get_post_meta($post->ID, $sanname,TRUE);
-    
-//     $namecom = $sanname . '_commentary';
-//     $$namecom = get_post_meta($post->ID, $namecom,TRUE);
-// }
-
-// global $accepted_fields;
-// echo '::' . print_r($accepted_fields, true) . '::';
 ?>
 
 
@@ -280,6 +245,15 @@ if (get_post_meta($post->ID, 'hreview_item_url',TRUE) == '') echo get_post_meta(
 
 <h4>Ratings</h4>
 
+<?php
+$all_categories = get_option('fhr_categories');
+if($all_categories == '') {
+	echo '<p>No fields have been set. <a href="options-general.php?page=fhr-category-options">Add them on the options page</a>.</p>';
+}
+else
+{
+?>
+
 <table class="widefat">
 
 	<thead>
@@ -293,10 +267,18 @@ if (get_post_meta($post->ID, 'hreview_item_url',TRUE) == '') echo get_post_meta(
 
 	<tbody>
 
+	<?php // save current rating max 
+	if(get_post_meta($post->ID, 'hreview_rating_max', TRUE)) {
+		$post_rating_max = get_post_meta($post->ID, 'hreview_rating_max', TRUE);
+	}
+	else {
+		$post_rating_max = get_option('fhr_rating_max');
+	}
+	?>
+	<input type="hidden" name="hreview_rating_max" id="hreview_rating_max" value="<?php echo $post_rating_max; ?>"/>
+
 	<?php
-	$all_categories = get_option('fhr_categories');
 	$split_categories = explode(',',$all_categories);
-	// print_r($split_categories);
 
 	foreach($split_categories as $category) {
 		$san_cat = str_replace('-','_',sanitize_title($category));
@@ -309,13 +291,14 @@ if (get_post_meta($post->ID, 'hreview_item_url',TRUE) == '') echo get_post_meta(
 				<select id="<?php echo $san_cat; ?>" name="<?php echo $san_cat; ?>">
                                         <option></option>
 					<?php 
-					for ($i = 1; $i <= get_option('fhr_rating_max'); $i++) {
+					for ($i = 1; $i <= $post_rating_max; $i++) {
 						echo '<option';
 						if(get_post_meta($post->ID, $san_cat, TRUE) == $i) echo ' selected="selected"';
 						echo '>' . $i . '</option>';
 					}
 					?>
-				</select> / <?php echo get_option('fhr_rating_max'); ?>
+				</select> / <?php echo $post_rating_max; ?>
+
 			</td>
 			<td class="form-field">
 				<textarea id="<?php echo $san_cat; ?>_commentary" name="<?php echo $san_cat; ?>_commentary" rows="2"><?php echo get_post_meta($post->ID, $san_cat . '_commentary',TRUE); ?></textarea>
@@ -328,6 +311,8 @@ if (get_post_meta($post->ID, 'hreview_item_url',TRUE) == '') echo get_post_meta(
 	</tbody>
 </table>
 <?php
+}
+
 wp_nonce_field('ehr-edit','ehr-nonce');
 
 }
@@ -349,10 +334,9 @@ function ehr_meta_save($post_id, $post) {
 	}
 
     global $post;
-    // global $categories;
-    global $accepted_fields;
+    global $fhr_accepted_fields;
  
-	foreach($accepted_fields as $key){
+	foreach($fhr_accepted_fields as $key){
 		$custom_field = $_POST[$key];
 		if(is_null($custom_field))
 		{
@@ -379,11 +363,10 @@ function flexible_hreview_html($post_id) {
 
     $post_has_review = false;
 
-    global $accepted_fields;
+    global $fhr_accepted_fields;
  
-	foreach($accepted_fields as $key) {
+	foreach($fhr_accepted_fields as $key) {
 		if(get_post_meta($post_id, $key, TRUE)) $post_has_review = true;
-		
 	}
 
 	if($post_has_review) {
@@ -462,13 +445,14 @@ function flexible_hreview_html($post_id) {
 		if(get_post_meta($post_id, $san_cat,TRUE)) {
 
         $total_rating += get_post_meta($post_id, $san_cat,TRUE);
+        $total_rating_max += get_post_meta($post_id, $san_cat . '_max',TRUE);
         $total_categories++;
 
         $ratings_list .= '
         <li>
             <span class="rating">
             	<strong>' . $category . ':</strong>
-           		<span class="value">' . get_post_meta($post_id, $san_cat, TRUE) . '</span> / <span class="best">' . get_option('fhr_rating_max') . '</span>
+           		<span class="value">' . get_post_meta($post_id, $san_cat, TRUE) . '</span> / <span class="best">' . get_post_meta($post_id, 'hreview_rating_max', TRUE) . '</span>
            	</span>
             <span class="commentary">' . get_option('fhr_before_rating_text') . get_post_meta($post_id, $san_cat . '_commentary',TRUE) . get_option('fhr_after_rating_text') . '</span>
         </li>
@@ -478,14 +462,14 @@ function flexible_hreview_html($post_id) {
 	}
 
     if($total_categories > 1 && get_option('fhr_use_average') == 0) {
-    $flexible_hreview_html_output .= '
+    	$flexible_hreview_html_output .= '
         	<li>
             <span class="rating">
             	<strong>' . get_option('fhr_use_average_label') . ':</strong>
-           		<span class="value">' . round((($total_rating) / ($total_categories * get_option('fhr_rating_max')))*get_option('fhr_rating_max'),0) . '</span> / <span class="best">' . get_option('fhr_rating_max') . '</span>
+           		<span class="value">' . round((($total_rating) / ($total_categories * get_post_meta($post_id, 'hreview_rating_max', TRUE)))*get_post_meta($post_id, 'hreview_rating_max', TRUE),0) . '</span> / <span class="best">' . get_post_meta($post_id, 'hreview_rating_max', TRUE) . '</span>
            	</span> ' . get_option('fhr_before_rating_text') . get_option('fhr_use_average_text') . get_option('fhr_after_rating_text') . '
             </li>
-            ';
+        ';
     }
 
     $flexible_hreview_html_output .= $ratings_list;
@@ -509,8 +493,7 @@ function flexible_hreview_html($post_id) {
 
 
 function flexible_hreview_preview() {
-	global $post;
-	flexible_hreview_html($_GET['post']);
+	echo flexible_hreview_html($_GET['post']);
 }
 
 // shortcode
