@@ -71,6 +71,11 @@ left: -999em;
 
 == Changelog ==
 
+= 0.7 =
+
+* Fixed preview
+* Maximum Rating saves in Post meta
+
 = 0.6 =
 
 * Added FAQ section
